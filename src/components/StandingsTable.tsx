@@ -3,9 +3,11 @@ import type { PresentStanding } from "@/lib/present";
 export default function StandingsTable({
   rows,
   seedsFinal,
+  poolComplete,
 }: {
   rows: PresentStanding[];
   seedsFinal: boolean;
+  poolComplete: boolean;
 }) {
   const anyShootout = rows.some((r) => r.needsShootout);
   return (
@@ -50,7 +52,7 @@ export default function StandingsTable({
           ))}
         </tbody>
       </table>
-      {anyShootout && (
+      {poolComplete && anyShootout && (
         <div className="shootout-note">
           Teams level after all tiebreakers &mdash; a PK shootout decides the seed.
         </div>

@@ -177,3 +177,27 @@ input.text:focus { outline: none; border-color: var(--red); }
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 10px; font-family: var(--cond); font-weight: 600; letter-spacing: 0.4px; box-shadow: var(--shadow); z-index: 50; }
 .footer { text-align: center; color: var(--muted); font-family: var(--cond); font-size: 12.5px; letter-spacing: 0.5px; margin-top: 30px; }
 .adminlink { color: var(--muted); text-decoration: none; }
+
+
+/* ---- info cards: tiebreakers + conduct ---- */
+.card.info { padding: 14px 16px; }
+.info-lead { margin: 0 0 10px; font-size: 14.5px; }
+.tb-list { margin: 0; padding-left: 20px; }
+.tb-list li { margin: 7px 0; font-size: 14.5px; }
+.tb-list b { font-family: var(--cond); letter-spacing: 0.3px; }
+.notice { margin: 0; font-size: 14.5px; background: #fdf0f2; border-left: 4px solid var(--red); padding: 11px 13px; border-radius: 8px; }
+.notice b { color: var(--red-dark); text-transform: uppercase; font-family: var(--cond); letter-spacing: 0.5px; }
+.conduct-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.linkbtn { font-family: var(--cond); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13.5px; text-decoration: none; padding: 10px 14px; border-radius: 10px; background: var(--ink); color: #fff; }
+.linkbtn:active { filter: brightness(0.92); }
+
+/* ---- conduct page ---- */
+.backlink { font-family: var(--cond); font-weight: 600; letter-spacing: 0.4px; margin: 16px 0 4px; }
+.backlink a { color: var(--red-dark); text-decoration: none; }
+.notice-wrap { margin: 8px 0 4px; }
+.conduct-body { padding: 16px 18px; }
+.conduct-body p { margin: 0 0 12px; font-size: 14.5px; }
+.conduct-body p:last-child { margin-bottom: 0; }
+.conduct-body ul { margin: 0 0 12px; padding-left: 20px; }
+.conduct-body li { margin: 7px 0; font-size: 14.5px; }
+.conduct-body b { color: var(--red-dark); }
