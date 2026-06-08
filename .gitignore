@@ -6,3 +6,5 @@ out
 *.log
 .DS_Store
 devlog.txt
+build.log
+build_3v3.bat

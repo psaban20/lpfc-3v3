@@ -2,7 +2,9 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+# npm install (not ci) so platform-specific optional deps resolve correctly on
+# the Linux build agent even when the lockfile was generated on Windows.
+RUN npm install --no-audit --no-fund
 
 FROM node:22-alpine AS builder
 WORKDIR /app
