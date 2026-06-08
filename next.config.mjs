@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone", // for slim Docker images on Azure Container Apps
+  output: "standalone",
+  serverExternalPackages: ["mssql"],
 };
 export default nextConfig;
