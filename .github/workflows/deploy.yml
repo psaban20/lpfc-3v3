@@ -1,0 +1,25 @@
+# Sample deploy workflow for Azure Container Apps. Fill in the placeholders
+# (<...>) and add the AZURE_CREDENTIALS secret to the repo. Adjust to match the
+# pattern used by the other LPFC frontends.
+name: Deploy 3v3 to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Build and push image
+        run: az acr build --registry <your-registry> --image lpfc-3v3:${{ github.sha }} .
+      - name: Update container app
+        run: |
+          az containerapp update \
+            --name lpfc-3v3 \
+            --resource-group <your-rg> \
+            --image <your-registry>.azurecr.io/lpfc-3v3:${{ github.sha }}
