@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Team, Game } from "./types";
 import { computeStandings } from "./standings";
+import { resolveBracket } from "./bracket";
 
 function team(id: string): Team {
   return { id, divisionId: "d", name: id };
@@ -63,5 +64,41 @@ describe("PK shootout seeding tiebreak", () => {
     const order = resolved.map((r) => r.team.id);
     expect(order.indexOf("Z")).toBeLessThan(order.indexOf("Y"));
     expect(resolved.every((r) => !r.needsShootout)).toBe(true);
+  });
+});
+
+
+describe("bracket gating on an unresolved tie", () => {
+  n = 0;
+  const teams = ["A", "B"].map(team);
+  const base: Game[] = [
+    pool("A", 1, "B", 1), // drew -> deadlocked seeds
+    {
+      id: "F",
+      divisionId: "d",
+      stage: "final",
+      time: "14:30",
+      field: 1,
+      home: { kind: "seed", seed: 1 },
+      away: { kind: "seed", seed: 2 },
+      homeScore: null,
+      awayScore: null,
+      status: "scheduled",
+    },
+  ];
+
+  it("leaves bracket seed slots empty while the tie is unresolved", () => {
+    const rb = resolveBracket(teams, base);
+    const f = rb.find((r) => r.game.id === "F")!;
+    expect(f.home.team).toBeNull();
+    expect(f.away.team).toBeNull();
+    expect(f.home.label).toBe("Seed 1");
+  });
+
+  it("populates seed slots once the shootout is recorded", () => {
+    const rb = resolveBracket(teams, base, [{ divisionId: "d", order: ["B", "A"] }]);
+    const f = rb.find((r) => r.game.id === "F")!;
+    expect(f.home.team?.id).toBe("B");
+    expect(f.away.team?.id).toBe("A");
   });
 });

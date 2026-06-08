@@ -38,9 +38,9 @@ export default function PublicView({ divisions }: { divisions: PresentDivision[]
 
       <div className="section barred">
         <h2>Standings</h2>
-        <span className="tag">{div.poolComplete ? "Final seeds" : "Pool play"}</span>
+        <span className="tag">{!div.poolComplete ? "Pool play" : div.seedsFinal ? "Final seeds" : "Shootout to seed"}</span>
       </div>
-      <StandingsTable rows={div.standings} poolComplete={div.poolComplete} />
+      <StandingsTable rows={div.standings} seedsFinal={div.seedsFinal} />
 
       <div className="section barred">
         <h2>Pool Schedule</h2>
@@ -49,7 +49,7 @@ export default function PublicView({ divisions }: { divisions: PresentDivision[]
 
       <div className="section barred">
         <h2>Bracket</h2>
-        <span className="tag">{div.poolComplete ? "Seeded" : "Awaiting pool play"}</span>
+        <span className="tag">{!div.poolComplete ? "Awaiting pool play" : div.seedsFinal ? "Seeded" : "Awaiting shootout"}</span>
       </div>
       <GameList games={div.bracket} />
 

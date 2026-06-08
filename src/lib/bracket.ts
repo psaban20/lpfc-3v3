@@ -7,7 +7,7 @@ import { computeStandings, poolComplete } from "./standings";
 // Bracket games reference participants by SEED (#1..#5) or by the WINNER of an
 // earlier bracket game. This resolves those references into concrete teams as
 // results come in:
-//   - seeds resolve once pool play is complete (standings are final)
+//   - seeds resolve once pool play is complete and no seeding ties remain
 //   - "winner of game X" resolves once game X has a winner
 // ---------------------------------------------------------------------------
 
@@ -73,9 +73,11 @@ export function resolveBracket(
   const gamesById = new Map(games.map((g) => [g.id, g]));
 
   const standings = computeStandings(teams, games, tiebreaks);
-  const seeds: Team[] | null = poolComplete(games)
-    ? standings.map((row) => row.team)
-    : null;
+  // Seeds become real only once pool play is complete AND no seeding ties
+  // remain. While a tie is unresolved (awaiting a PK shootout), leave the
+  // bracket unpopulated rather than seed it on an arbitrary order.
+  const seedsFinal = poolComplete(games) && standings.every((row) => !row.needsShootout);
+  const seeds: Team[] | null = seedsFinal ? standings.map((row) => row.team) : null;
 
   const bracketGames = games
     .filter((g) => g.stage !== "pool")

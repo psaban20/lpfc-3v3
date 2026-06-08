@@ -287,7 +287,7 @@ export default function AdminPanel({ divisions }: { divisions: PresentDivision[]
 
       <div className="section barred">
         <h2>Bracket</h2>
-        <span className="tag">{div.poolComplete ? "Seeded" : "Locked until pool play ends"}</span>
+        <span className="tag">{!div.poolComplete ? "Locked until pool play ends" : div.seedsFinal ? "Seeded" : "Awaiting shootout"}</span>
       </div>
       <div className="card">
         {div.bracket.map((g) => <EntryRow key={g.id} g={g} onSaved={flashToast} />)}

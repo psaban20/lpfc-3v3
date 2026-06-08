@@ -48,6 +48,9 @@ export interface PresentDivision {
   name: string;
   field: number;
   poolComplete: boolean;
+  // True when pool play is done AND every seed is decided (no tie awaiting a
+  // PK shootout). The bracket only populates once this is true.
+  seedsFinal: boolean;
   standings: PresentStanding[];
   pool: PresentGame[];
   bracket: PresentGame[];
@@ -148,11 +151,14 @@ function buildDivision(
     };
   });
 
+  const seedsFinal = v.poolComplete && v.standings.every((r) => !r.needsShootout);
+
   return {
     id: v.division.id,
     name: v.division.name,
     field: v.division.field,
     poolComplete: v.poolComplete,
+    seedsFinal,
     standings,
     pool,
     bracket,

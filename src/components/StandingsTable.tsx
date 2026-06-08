@@ -2,10 +2,10 @@ import type { PresentStanding } from "@/lib/present";
 
 export default function StandingsTable({
   rows,
-  poolComplete,
+  seedsFinal,
 }: {
   rows: PresentStanding[];
-  poolComplete: boolean;
+  seedsFinal: boolean;
 }) {
   const anyShootout = rows.some((r) => r.needsShootout);
   return (
@@ -29,7 +29,7 @@ export default function StandingsTable({
           {rows.map((r) => (
             <tr
               key={r.teamId}
-              className={`seed-${r.seed} ${poolComplete && r.seed <= 4 ? "pos-strong" : ""} ${r.played === 0 ? "muted-row" : ""}`}
+              className={`seed-${r.seed} ${seedsFinal && r.seed <= 4 ? "pos-strong" : ""} ${r.played === 0 ? "muted-row" : ""}`}
             >
               <td>
                 <span className="seedbadge">{r.seed}</span>
