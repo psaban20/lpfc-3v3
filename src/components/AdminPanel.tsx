@@ -16,6 +16,8 @@ function EntryRow({ g, onSaved }: { g: PresentGame; onSaved: (msg: string) => vo
 
   const tied = status === "final" && home !== "" && away !== "" && Number(home) === Number(away);
   const needsShootout = tied && g.stage !== "pool"; // bracket games can't end level
+  const missingScore = status === "final" && (home === "" || away === "");
+  const hasStoredResult = g.status !== "scheduled";
 
   async function save() {
     setBusy(true);
@@ -35,6 +37,24 @@ function EntryRow({ g, onSaved }: { g: PresentGame; onSaved: (msg: string) => vo
       setFlash(true);
       setTimeout(() => setFlash(false), 1500);
       onSaved(`${g.homeLabel} vs ${g.awayLabel} saved`);
+    }
+  }
+
+  async function clear() {
+    if (!confirm(`Clear the score for ${g.homeLabel} vs ${g.awayLabel}?`)) return;
+    setBusy(true);
+    const res = await fetch("/api/results", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gameId: g.id }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      setHome("");
+      setAway("");
+      setStatus("final");
+      setDecidedBy(null);
+      onSaved(`${g.homeLabel} vs ${g.awayLabel} cleared`);
     }
   }
 
@@ -101,11 +121,21 @@ function EntryRow({ g, onSaved }: { g: PresentGame; onSaved: (msg: string) => vo
       <div className="save">
         <button
           className="btn btn-ink"
-          disabled={busy || ((status === "forfeit" || needsShootout) && !decidedBy)}
+          disabled={busy || missingScore || ((status === "forfeit" || needsShootout) && !decidedBy)}
           onClick={save}
         >
           {busy ? "Saving..." : "Save"}
         </button>
+        {hasStoredResult && (
+          <button className="btn btn-ghost" disabled={busy} onClick={clear} style={{ marginLeft: 8 }}>
+            Clear
+          </button>
+        )}
+        {missingScore && (
+          <span style={{ fontFamily: "var(--cond)", fontSize: 12.5, color: "var(--muted)", marginLeft: 8 }}>
+            Enter a score in both boxes, or pick Forfeit / Not played.
+          </span>
+        )}
         {flash && <span className="saved-flash"> &nbsp;✓ Saved</span>}
       </div>
     </div>

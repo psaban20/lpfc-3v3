@@ -22,6 +22,7 @@ export interface ResultInput {
 export interface Store {
   getResults(): Promise<StoredResult[]>;
   saveResult(gameId: string, input: ResultInput): Promise<void>;
+  clearResult(gameId: string): Promise<void>;
   resetAll(): Promise<void>;
   loadMany(results: Array<{ gameId: string } & ResultInput>): Promise<void>;
 }
@@ -55,6 +56,10 @@ class InMemoryStore implements Store {
       status: input.status,
       decidedBy: input.decidedBy ?? null,
     });
+  }
+
+  async clearResult(gameId: string) {
+    this.map.delete(gameId);
   }
 
   async resetAll() {

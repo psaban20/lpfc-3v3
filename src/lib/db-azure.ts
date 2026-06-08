@@ -71,6 +71,15 @@ export class AzureSqlStore implements Store {
       `);
   }
 
+  async clearResult(gameId: string): Promise<void> {
+    assertValidGameId(gameId);
+    const pool = await this.pool();
+    await pool
+      .request()
+      .input("gameId", gameId)
+      .query("DELETE FROM GameResult WHERE gameId = @gameId");
+  }
+
   async resetAll(): Promise<void> {
     const pool = await this.pool();
     await pool.request().query("DELETE FROM GameResult");
