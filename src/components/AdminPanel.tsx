@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PresentDivision, PresentGame } from "@/lib/present";
+import type { PresentDivision, PresentGame, TiedGroup } from "@/lib/present";
 import type { GameStatus } from "@/lib/types";
 
 function EntryRow({ g, onSaved }: { g: PresentGame; onSaved: (msg: string) => void }) {
@@ -142,6 +142,78 @@ function EntryRow({ g, onSaved }: { g: PresentGame; onSaved: (msg: string) => vo
   );
 }
 
+function ShootoutGroup({
+  divisionId,
+  group,
+  onResolved,
+}: {
+  divisionId: string;
+  group: TiedGroup;
+  onResolved: (msg: string) => void;
+}) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const remaining = group.teams.filter((t) => !picked.includes(t.teamId));
+  // Auto-append the last team once only one remains -- no need to tap the
+  // loser of a two-way shootout.
+  const finalOrder = remaining.length === 1 ? [...picked, remaining[0].teamId] : picked;
+  const complete = finalOrder.length === group.teams.length;
+  const twoTeam = group.teams.length === 2;
+
+  function pick(id: string) {
+    setPicked((p) => (p.includes(id) ? p : [...p, id]));
+  }
+
+  async function save() {
+    setBusy(true);
+    const res = await fetch("/api/tiebreak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ divisionId, order: finalOrder }),
+    });
+    setBusy(false);
+    if (res.ok) onResolved("Seeding shootout recorded");
+  }
+
+  return (
+    <div className="entry">
+      <div className="who" style={{ gridColumn: "1 / -1" }}>
+        <div>{group.teams.map((t) => t.name).join("  vs  ")}</div>
+        <span className="meta">
+          {twoTeam ? "Tap the shootout winner." : "Tap teams in finishing order (winner first)."}
+        </span>
+      </div>
+      <div className="status-row" style={{ gridColumn: "1 / -1" }}>
+        {group.teams.map((t) => {
+          const rank = finalOrder.indexOf(t.teamId);
+          return (
+            <button
+              key={t.teamId}
+              className="chip"
+              aria-pressed={rank !== -1}
+              onClick={() => pick(t.teamId)}
+            >
+              {rank !== -1 ? `${rank + 1}. ` : ""}
+              {t.name}
+            </button>
+          );
+        })}
+      </div>
+      <div className="save" style={{ gridColumn: "1 / -1" }}>
+        <button className="btn btn-ink" disabled={busy || !complete} onClick={save}>
+          {busy ? "Saving..." : "Save seed order"}
+        </button>
+        {picked.length > 0 && (
+          <button className="btn btn-ghost" style={{ marginLeft: 8 }} onClick={() => setPicked([])}>
+            Reset
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPanel({ divisions }: { divisions: PresentDivision[] }) {
   const router = useRouter();
   const [active, setActive] = useState(divisions[0]?.id ?? "");
@@ -189,6 +261,24 @@ export default function AdminPanel({ divisions }: { divisions: PresentDivision[]
           </button>
         ))}
       </div>
+
+      {div.poolComplete && div.tiedGroups.length > 0 && (
+        <>
+          <div className="section barred">
+            <h2>Seeding Shootout</h2>
+            <span className="tag">needed before bracket</span>
+          </div>
+          <div className="card">
+            <p style={{ fontFamily: "var(--cond)", color: "var(--muted)", margin: "12px 13px 2px", fontSize: 13.5 }}>
+              These teams are level on every tiebreaker, so a PK shootout decides their seeds. Record the
+              result to lock in the bracket.
+            </p>
+            {div.tiedGroups.map((grp) => (
+              <ShootoutGroup key={grp.id} divisionId={div.id} group={grp} onResolved={flashToast} />
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="section barred"><h2>Pool Games</h2></div>
       <div className="card">

@@ -58,7 +58,17 @@ export interface StandingRow {
   goalsFor: number;
   goalsAgainst: number;
   goalDiff: number;
+  // The group of teams this one is tied with after every automatic tiebreaker
+  // (null when not tied). Teams sharing a tieGroup need a PK shootout.
+  tieGroup: number | null;
   // True when this team is still tied with another after every automatic
   // tiebreaker — the rules call for a PK shootout, which is a manual step.
   needsShootout: boolean;
+}
+
+// A recorded PK-shootout finishing order for a set of teams that were level on
+// every automatic tiebreaker. `order` lists their teamIds, best seed first.
+export interface SeedingTiebreak {
+  divisionId: string;
+  order: string[];
 }

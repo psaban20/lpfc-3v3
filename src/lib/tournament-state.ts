@@ -1,4 +1,4 @@
-import type { Game, GameStatus } from "./types";
+import type { Game, GameStatus, SeedingTiebreak } from "./types";
 import { GAMES, TEAMS, DIVISIONS } from "../data/tournament";
 import { computeStandings, poolComplete } from "./standings";
 import { resolveBracket } from "./bracket";
@@ -28,27 +28,32 @@ export function mergeResults(results: StoredResult[]): Game[] {
   });
 }
 
-export function divisionView(divisionId: string, games: Game[]) {
+export function divisionView(
+  divisionId: string,
+  games: Game[],
+  tiebreaks: SeedingTiebreak[] = [],
+) {
   const division = DIVISIONS.find((d) => d.id === divisionId)!;
   const teams = TEAMS.filter((t) => t.divisionId === divisionId);
   const divGames = games.filter((g) => g.divisionId === divisionId);
+  const tb = tiebreaks.filter((t) => t.divisionId === divisionId);
   const pool = divGames
     .filter((g) => g.stage === "pool")
     .sort((a, b) => a.time.localeCompare(b.time));
 
   return {
     division,
-    standings: computeStandings(teams, divGames),
+    standings: computeStandings(teams, divGames, tb),
     poolGames: pool,
     poolComplete: poolComplete(divGames),
-    bracket: resolveBracket(teams, divGames),
+    bracket: resolveBracket(teams, divGames, tb),
   };
 }
 
-export function allDivisionViews(games: Game[]) {
+export function allDivisionViews(games: Game[], tiebreaks: SeedingTiebreak[] = []) {
   return [...DIVISIONS]
     .sort((a, b) => a.order - b.order)
-    .map((d) => divisionView(d.id, games));
+    .map((d) => divisionView(d.id, games, tiebreaks));
 }
 
 export { DIVISIONS, TEAMS, GAMES };

@@ -1,15 +1,16 @@
-import type { GameStatus } from "./types";
+import type { GameStatus, SeedingTiebreak } from "./types";
 import type { StoredResult } from "./tournament-state";
+import { tieGroupKey } from "./standings";
 import { GAMES } from "../data/tournament";
 
 // ---------------------------------------------------------------------------
 // Result store.
 //
 // The schedule (teams, times, matchups) lives in code; only mutable game
-// results are persisted here. The default store is in-memory so the app runs
-// and builds with zero setup -- ideal for local UI testing and mock-score
-// runs. For the live tournament, set AZURE_SQL_CONNECTION and the app uses the
-// Azure SQL adapter instead (see db-azure.ts and the README).
+// results -- and recorded PK-shootout seeding orders -- are persisted here. The
+// default store is in-memory so the app runs and builds with zero setup. For
+// the live tournament, set AZURE_SQL_CONNECTION and the app uses the Azure SQL
+// adapter instead (see db-azure.ts and the README).
 // ---------------------------------------------------------------------------
 
 export interface ResultInput {
@@ -25,12 +26,15 @@ export interface Store {
   clearResult(gameId: string): Promise<void>;
   resetAll(): Promise<void>;
   loadMany(results: Array<{ gameId: string } & ResultInput>): Promise<void>;
+  getTiebreaks(): Promise<SeedingTiebreak[]>;
+  saveTiebreak(divisionId: string, order: string[]): Promise<void>;
+  clearTiebreaksForDivision(divisionId: string): Promise<void>;
 }
 
-const VALID_GAME_IDS = new Set(GAMES.map((g) => g.id));
+const GAME_META = new Map(GAMES.map((g) => [g.id, { divisionId: g.divisionId, stage: g.stage }]));
 
 export function assertValidGameId(gameId: string) {
-  if (!VALID_GAME_IDS.has(gameId)) throw new Error(`Unknown game id: ${gameId}`);
+  if (!GAME_META.has(gameId)) throw new Error(`Unknown game id: ${gameId}`);
 }
 
 // --- in-memory implementation (default) ------------------------------------
@@ -41,6 +45,12 @@ class InMemoryStore implements Store {
     const g = globalThis as unknown as { __lpfcResults?: Map<string, StoredResult> };
     if (!g.__lpfcResults) g.__lpfcResults = new Map();
     return g.__lpfcResults;
+  }
+
+  private get tiebreaks(): Map<string, SeedingTiebreak> {
+    const g = globalThis as unknown as { __lpfcTiebreaks?: Map<string, SeedingTiebreak> };
+    if (!g.__lpfcTiebreaks) g.__lpfcTiebreaks = new Map();
+    return g.__lpfcTiebreaks;
   }
 
   async getResults() {
@@ -56,18 +66,47 @@ class InMemoryStore implements Store {
       status: input.status,
       decidedBy: input.decidedBy ?? null,
     });
+    this.invalidateTiebreaksFor(gameId);
   }
 
   async clearResult(gameId: string) {
     this.map.delete(gameId);
+    this.invalidateTiebreaksFor(gameId);
   }
 
   async resetAll() {
     this.map.clear();
+    this.tiebreaks.clear();
   }
 
   async loadMany(results: Array<{ gameId: string } & ResultInput>) {
     for (const r of results) await this.saveResult(r.gameId, r);
+  }
+
+  async getTiebreaks() {
+    return [...this.tiebreaks.values()];
+  }
+
+  async saveTiebreak(divisionId: string, order: string[]) {
+    if (!order.length) throw new Error("Tiebreak order is empty");
+    this.tiebreaks.set(`${divisionId}|${tieGroupKey(order)}`, { divisionId, order });
+  }
+
+  async clearTiebreaksForDivision(divisionId: string) {
+    for (const [k, v] of this.tiebreaks) {
+      if (v.divisionId === divisionId) this.tiebreaks.delete(k);
+    }
+  }
+
+  // A change to a pool result can shift the standings, so any recorded shootout
+  // for that division is no longer valid -- drop it and let it be re-recorded.
+  private invalidateTiebreaksFor(gameId: string) {
+    const meta = GAME_META.get(gameId);
+    if (meta && meta.stage === "pool") {
+      for (const [k, v] of this.tiebreaks) {
+        if (v.divisionId === meta.divisionId) this.tiebreaks.delete(k);
+      }
+    }
   }
 }
 

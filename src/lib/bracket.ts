@@ -1,4 +1,4 @@
-import type { Game, Team, TeamRef } from "./types";
+import type { Game, Team, TeamRef, SeedingTiebreak } from "./types";
 import { computeStandings, poolComplete } from "./standings";
 
 // ---------------------------------------------------------------------------
@@ -64,11 +64,15 @@ function resolveRef(
 
 // Resolve every bracket game in a division. Bracket games must be passed in
 // chronological order so "winner of" references point at already-resolved games.
-export function resolveBracket(teams: Team[], games: Game[]): ResolvedGame[] {
+export function resolveBracket(
+  teams: Team[],
+  games: Game[],
+  tiebreaks: SeedingTiebreak[] = [],
+): ResolvedGame[] {
   const teamsById = new Map(teams.map((t) => [t.id, t]));
   const gamesById = new Map(games.map((g) => [g.id, g]));
 
-  const standings = computeStandings(teams, games);
+  const standings = computeStandings(teams, games, tiebreaks);
   const seeds: Team[] | null = poolComplete(games)
     ? standings.map((row) => row.team)
     : null;

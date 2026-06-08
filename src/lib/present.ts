@@ -16,6 +16,7 @@ export interface PresentStanding {
   goalsAgainst: number;
   goalDiff: number;
   needsShootout: boolean;
+  tieGroup: number | null;
 }
 
 export interface PresentGame {
@@ -35,6 +36,13 @@ export interface PresentGame {
   winnerLabel: string | null;
 }
 
+// A set of teams that are level on every automatic tiebreaker and need a PK
+// shootout to decide their seed order.
+export interface TiedGroup {
+  id: number;
+  teams: { teamId: string; name: string }[];
+}
+
 export interface PresentDivision {
   id: string;
   name: string;
@@ -43,6 +51,7 @@ export interface PresentDivision {
   standings: PresentStanding[];
   pool: PresentGame[];
   bracket: PresentGame[];
+  tiedGroups: TiedGroup[];
 }
 
 const STAGE_LABEL: Record<string, string> = {
@@ -52,8 +61,12 @@ const STAGE_LABEL: Record<string, string> = {
   final: "Final",
 };
 
-function buildDivision(divId: string, games: ReturnType<typeof mergeResults>): PresentDivision {
-  const v = divisionView(divId, games);
+function buildDivision(
+  divId: string,
+  games: ReturnType<typeof mergeResults>,
+  tiebreaks: Parameters<typeof divisionView>[2],
+): PresentDivision {
+  const v = divisionView(divId, games, tiebreaks);
 
   const standings: PresentStanding[] = v.standings.map((r) => ({
     teamId: r.team.id,
@@ -69,7 +82,21 @@ function buildDivision(divId: string, games: ReturnType<typeof mergeResults>): P
     goalsAgainst: r.goalsAgainst,
     goalDiff: r.goalDiff,
     needsShootout: r.needsShootout,
+    tieGroup: r.tieGroup,
   }));
+
+  // Cluster the flagged teams into their tie groups, preserving standings order.
+  const groupMap = new Map<number, TiedGroup>();
+  for (const r of standings) {
+    if (r.tieGroup == null) continue;
+    let g = groupMap.get(r.tieGroup);
+    if (!g) {
+      g = { id: r.tieGroup, teams: [] };
+      groupMap.set(r.tieGroup, g);
+    }
+    g.teams.push({ teamId: r.teamId, name: r.name });
+  }
+  const tiedGroups = [...groupMap.values()].filter((g) => g.teams.length > 1);
 
   const nameById = new Map(v.standings.map((r) => [r.team.id, r.team.name]));
 
@@ -129,14 +156,17 @@ function buildDivision(divId: string, games: ReturnType<typeof mergeResults>): P
     standings,
     pool,
     bracket,
+    tiedGroups,
   };
 }
 
-// Read current results from the store and build every division view.
+// Read current results and recorded shootouts from the store and build every
+// division view.
 export async function getPresentDivisions(): Promise<PresentDivision[]> {
-  const results = await getStore().getResults();
+  const store = getStore();
+  const [results, tiebreaks] = await Promise.all([store.getResults(), store.getTiebreaks()]);
   const games = mergeResults(results);
   return [...DIVISIONS]
     .sort((a, b) => a.order - b.order)
-    .map((d) => buildDivision(d.id, games));
+    .map((d) => buildDivision(d.id, games, tiebreaks));
 }

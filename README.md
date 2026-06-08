@@ -88,6 +88,20 @@ CREATE TABLE GameResult (
 );
 ```
 
+When seeds tie all the way down, the admin records the PK-shootout finishing
+order in the score-entry screen (a "Seeding Shootout" picker appears for exactly
+the tied teams) and the bracket locks to that order. That order lives in a
+second small table:
+
+```sql
+CREATE TABLE SeedingTiebreak (
+  divisionId NVARCHAR(32)  NOT NULL,
+  groupKey   NVARCHAR(512) NOT NULL,
+  ordering   NVARCHAR(512) NOT NULL, -- JSON array of teamIds, best seed first
+  PRIMARY KEY (divisionId, groupKey)
+);
+```
+
 `mssql` is listed as an optional dependency; run `npm install` on a machine with
 network access so it's available in the deployed image.
 

@@ -1,4 +1,4 @@
-import type { Game, Team, StandingRow, GameStatus } from "./types";
+import type { Game, Team, StandingRow, GameStatus, SeedingTiebreak } from "./types";
 
 // ---------------------------------------------------------------------------
 // LaPorte FC 3v3 standings engine.
@@ -15,12 +15,18 @@ import type { Game, Team, StandingRow, GameStatus } from "./types";
 //   3. Goal differential
 //   4. Fewest goals against
 //   5. Goals scored
-//   6. PK shootout   -- manual; flagged, not auto-resolved
+//   6. PK shootout   -- manual; resolved by a recorded result, else flagged
 //
 // Multi-team ties: with three or more teams level, head-to-head is skipped
 // (it goes circular). A scalar tiebreaker that splits the group is applied,
 // then each remaining sub-group is re-resolved from the top -- so a sub-group
 // that shrinks to exactly two teams reopens head-to-head for those two.
+//
+// When nothing automatic separates a group, the rules call for a PK shootout.
+// The admin records the finishing order for that group (see SeedingTiebreak),
+// and this engine uses it as the final tiebreaker. Until then, the group is
+// flagged (needsShootout) and tagged with a tieGroup id so the UI can offer a
+// picker for exactly those teams.
 // ---------------------------------------------------------------------------
 
 const FORFEIT_SCORE = 4;
@@ -34,6 +40,19 @@ interface Tally {
   points: number;
   goalsFor: number;
   goalsAgainst: number;
+}
+
+interface RankCtx {
+  games: Game[];
+  tiebreaksByKey: Map<string, string[]>;
+  unresolved: Set<string>;
+  groupOf: Map<string, number>;
+  nextGroupId: { value: number };
+}
+
+// A stable key for a set of teams, independent of order.
+export function tieGroupKey(teamIds: string[]): string {
+  return [...teamIds].sort().join("|");
 }
 
 // A game counts toward standings only once it has a result.
@@ -136,8 +155,7 @@ function headToHead(a: Tally, b: Tally, games: Game[]): string | null {
     const pair = new Set([homeId, awayId]);
     if (!pair.has(a.team.id) || !pair.has(b.team.id)) continue;
     if (goals.home === goals.away) return null; // drew -> inconclusive
-    const winnerId = goals.home > goals.away ? homeId : awayId;
-    return winnerId;
+    return goals.home > goals.away ? homeId : awayId;
   }
   return null; // never met
 }
@@ -163,22 +181,14 @@ function partitionByMetric(
 }
 
 // Resolve an ordering within a group of teams already tied on points.
-// Returns the group ordered best-first; teams left genuinely tied keep their
-// incoming order and are flagged for a manual shootout.
-function rankTiedGroup(
-  group: Tally[],
-  games: Game[],
-  unresolved: Set<string>,
-): Tally[] {
+function rankTiedGroup(group: Tally[], ctx: RankCtx): Tally[] {
   if (group.length <= 1) return group;
 
   // Head-to-head is only meaningful (and non-circular) for exactly two teams.
   if (group.length === 2) {
     const [a, b] = group;
-    const winnerId = headToHead(a, b, games);
-    if (winnerId) {
-      return winnerId === a.team.id ? [a, b] : [b, a];
-    }
+    const winnerId = headToHead(a, b, ctx.games);
+    if (winnerId) return winnerId === a.team.id ? [a, b] : [b, a];
     // inconclusive -> fall through to the scalar cascade
   }
 
@@ -194,26 +204,50 @@ function rankTiedGroup(
     if (parts.length > 1) {
       // This criterion split the group. Re-resolve each sub-group from the
       // top -- a sub-group of two reopens head-to-head.
-      return parts.flatMap((sub) => rankTiedGroup(sub, games, unresolved));
+      return parts.flatMap((sub) => rankTiedGroup(sub, ctx));
     }
   }
 
-  // Nothing separated them -> genuinely tied. Rules call for a PK shootout.
-  for (const t of group) unresolved.add(t.team.id);
+  // Nothing separated them. If a PK shootout result has been recorded for
+  // exactly this set of teams, order by it; otherwise flag for a shootout.
+  const key = tieGroupKey(group.map((t) => t.team.id));
+  const order = ctx.tiebreaksByKey.get(key);
+  if (order) {
+    const rank = (id: string) => {
+      const i = order.indexOf(id);
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    return [...group].sort((a, b) => rank(a.team.id) - rank(b.team.id));
+  }
+
+  const gid = ctx.nextGroupId.value++;
+  for (const t of group) {
+    ctx.unresolved.add(t.team.id);
+    ctx.groupOf.set(t.team.id, gid);
+  }
   return group;
 }
 
-// Compute the full ordered standings for one division.
-export function computeStandings(teams: Team[], games: Game[]): StandingRow[] {
+// Compute the full ordered standings for one division. `tiebreaks` carries any
+// recorded PK-shootout finishing orders for tied groups in this division.
+export function computeStandings(
+  teams: Team[],
+  games: Game[],
+  tiebreaks: SeedingTiebreak[] = [],
+): StandingRow[] {
   const tallies = buildTallies(teams, games);
   const all = [...tallies.values()];
-  const unresolved = new Set<string>();
+  const ctx: RankCtx = {
+    games,
+    tiebreaksByKey: new Map(tiebreaks.map((tb) => [tieGroupKey(tb.order), tb.order])),
+    unresolved: new Set<string>(),
+    groupOf: new Map<string, number>(),
+    nextGroupId: { value: 1 },
+  };
 
   // Top-level sort by points, then resolve each equal-points group.
   const byPoints = partitionByMetric(all, (t) => t.points, true);
-  const ordered = byPoints.flatMap((group) =>
-    rankTiedGroup(group, games, unresolved),
-  );
+  const ordered = byPoints.flatMap((group) => rankTiedGroup(group, ctx));
 
   return ordered.map((t, i) => ({
     team: t.team,
@@ -226,7 +260,8 @@ export function computeStandings(teams: Team[], games: Game[]): StandingRow[] {
     goalsFor: t.goalsFor,
     goalsAgainst: t.goalsAgainst,
     goalDiff: gd(t),
-    needsShootout: unresolved.has(t.team.id),
+    needsShootout: ctx.unresolved.has(t.team.id),
+    tieGroup: ctx.groupOf.get(t.team.id) ?? null,
   }));
 }
 
