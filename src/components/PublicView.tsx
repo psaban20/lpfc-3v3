@@ -54,6 +54,16 @@ export default function PublicView({ divisions }: { divisions: PresentDivision[]
       <GameList games={div.bracket} />
 
       <div className="section barred">
+        <h2>Field Map &amp; Rules</h2>
+      </div>
+      <div className="card info">
+        <div className="conduct-links">
+          <a className="linkbtn" href="/field-map.png" target="_blank" rel="noopener noreferrer">Field Map</a>
+          <a className="linkbtn" href="/rules">Tournament Rules</a>
+        </div>
+      </div>
+
+      <div className="section barred">
         <h2>Seeding &amp; Tiebreakers</h2>
       </div>
       <div className="card info">
