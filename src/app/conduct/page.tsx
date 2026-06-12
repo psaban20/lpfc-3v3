@@ -14,7 +14,7 @@ export default function ConductPage() {
           <img className="crest" src="/logo.png" alt="LaPorte FC crest" />
           <div>
             <h1>Codes of Conduct</h1>
-            <div className="sub">LaPorte FC &middot; Kesling Park</div>
+            <div className="sub">LaPorte FC &middot; Kesling Park &middot; June 13, 2026</div>
           </div>
         </div>
       </header>
